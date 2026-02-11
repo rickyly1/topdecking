@@ -8,7 +8,7 @@ Frontend
 - TailwindCSS
 - Clerk (authentication)
 Backend
-- Node.js (JavaScript)
+- Node.js (TypeScript)
 - Express.js
 - Prisma ORM
 - PostgreSQL
