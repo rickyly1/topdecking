@@ -12,6 +12,7 @@ Backend
 - Express.js
 - Prisma ORM
 - PostgreSQL
+- Supabase
 External API
 - YGOPRODeck API (card data, images, banlist status)
 
