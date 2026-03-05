@@ -6,11 +6,125 @@ datasource db {
   provider = "postgresql"
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model Connection_Test {
-  id         BigInt   @id @default(autoincrement())
-  created_at DateTime @default(now()) @db.Timestamptz(6)
+//
+// CARDS
+//
+model Card {
+  id          Int                @id @default(autoincrement())
+  name        String             @unique
+  cardType    String             // Monster, Spell, Trap
+  race        String?
+  attribute   String?
+  level       Int?
+  atk         Int?
+  def         Int?
+  description String?
 
-  @@map("Connection Test")
+  // Relations
+  monsterTypes CardMonsterType[]
+  summonTypes  CardSummonType[]
+  inventoryItems InventoryItem[]
+  deckCards      DeckCard[]
+}
+
+//
+// CARD -> THIS (JOIN TABLE) -> LINKS TO MonsterType
+//
+model CardMonsterType {
+  cardId        Int
+  monsterTypeId Int
+
+  card        Card        @relation(fields: [cardId], references: [id])
+  monsterType MonsterType @relation(fields: [monsterTypeId], references: [id])
+
+  @@id([cardId, monsterTypeId])
+}
+
+//
+// MONSTER TYPE LOOKUP
+//
+model MonsterType {
+  id    Int    @id @default(autoincrement())
+  name  String @unique   // Normal, Effect, Toon, Flip, Tuner, etc.
+
+  cards CardMonsterType[]
+}
+
+//
+// CARD -> THIS (JOIN TABLE) -> LINKS TO SummonType
+//
+model CardSummonType {
+  cardId       Int
+  summonTypeId Int
+
+  card       Card       @relation(fields: [cardId], references: [id])
+  summonType SummonType @relation(fields: [summonTypeId], references: [id])
+
+  @@id([cardId, summonTypeId])
+}
+
+//
+// SUMMON TYPE LOOKUP
+//
+model SummonType {
+  id    Int    @id @default(autoincrement())
+  name  String @unique   // Fusion, Synchro, XYZ, Link, Ritual
+
+  cards CardSummonType[]
+}
+
+//
+// USER
+//
+model User {
+  id        Int             @id @default(autoincrement())
+  email     String          @unique
+  username  String?
+
+  inventory InventoryItem[]
+  decks     Deck[]
+}
+
+//
+// INVENTORY
+//
+model InventoryItem {
+  id        Int   @id @default(autoincrement())
+  userId    Int
+  cardId    Int
+  quantity  Int   @default(1)
+
+  user User @relation(fields: [userId], references: [id])
+  card Card @relation(fields: [cardId], references: [id])
+
+  @@unique([userId, cardId])
+}
+
+//
+// DECK
+//
+model Deck {
+  id        Int        @id @default(autoincrement())
+  userId    Int
+  name      String
+  createdAt DateTime   @default(now())
+
+  user      User       @relation(fields: [userId], references: [id])
+  cards     DeckCard[]
+}
+
+//
+// DECK CONTENTS
+//
+model DeckCard {
+  id        Int      @id @default(autoincrement())
+  deckId    Int
+  cardId    Int
+  quantity  Int      @default(1)
+  isSide    Boolean  @default(false)
+
+  deck Deck @relation(fields: [deckId], references: [id])
+  card Card @relation(fields: [cardId], references: [id])
+
+  @@unique([deckId, cardId, isSide])
 }
