@@ -1,3 +1,30 @@
+enum Attribute { // for "Card"
+  LIGHT
+  DARK
+  FIRE
+  WATER
+  EARTH
+  WIND
+  DIVINE
+  SPELL
+  TRAP
+}
+
+enum SummonType { // for "Card"
+  NORMAL
+  FUSION
+  SYNCHRO
+  XYZ
+  LINK
+  RITUAL
+}
+
+enum DeckZone { // for "DeckCard"
+  MAIN
+  SIDE
+  EXTRA
+}
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,32 +34,32 @@ datasource db {
 }
 
 //
-// CARDS
+// "Card" entity; represents a single YGO card
 //
 model Card {
-  id          Int                @id @default(autoincrement())
-  name        String             @unique
-  cardType    String             // Monster, Spell, Trap
-  race        String?
-  attribute   String?
-  level       Int?
-  atk         Int?
-  def         Int?
-  description String?
+  id          Int                     @id @default(autoincrement())
+  name        String                  @unique
+  attribute   Attribute               // Light, Dark, Fire, Water, Earth, Wind, Divine, Spell, Trap
+  race        String?                 // (Monsters only) Dragon, Spellcaster, etc.
+  summonType  SummonType?             // (Monsters only) Normal, Effect, Fusion, Synchro, etc.
+  level       Int?                    // (Monsters only) Rank and Link stored here also
+  atk         Int?                    // (Monsters only) '?' values will be '0'
+  def         Int?                    // (Monsters only) '?" values and Link monsters will be '0'
+  description String                  // Card text
+  restriction Int                     // 3 = Unlimited, 2 = Semi-Limited, 1 = Limited, 0 = Forbidden
 
   // Relations
-  monsterTypes CardMonsterType[]
-  summonTypes  CardSummonType[]
-  inventoryItems InventoryItem[]
-  deckCards      DeckCard[]
+  monsterTypes    CardMonsterType[]   // Join table for Monster types (Flip, Tuner, etc.)
+  inventoryItems  InventoryItem[]     // Inventory entries for this card
+  deckCards       DeckCard[]          // Cards in decks
 }
 
 //
-// CARD -> THIS (JOIN TABLE) -> LINKS TO MonsterType
+// Join table to store many-to-many relationship between Card and MonsterType
 //
 model CardMonsterType {
-  cardId        Int
-  monsterTypeId Int
+  cardId        Int       // ID of "Card"
+  monsterTypeId Int       // ID of types for MonsterType table
 
   card        Card        @relation(fields: [cardId], references: [id])
   monsterType MonsterType @relation(fields: [monsterTypeId], references: [id])
@@ -41,7 +68,7 @@ model CardMonsterType {
 }
 
 //
-// MONSTER TYPE LOOKUP
+// Lookup table for Monster Types (Flip, Tuner, etc.)
 //
 model MonsterType {
   id    Int    @id @default(autoincrement())
@@ -51,80 +78,56 @@ model MonsterType {
 }
 
 //
-// CARD -> THIS (JOIN TABLE) -> LINKS TO SummonType
-//
-model CardSummonType {
-  cardId       Int
-  summonTypeId Int
-
-  card       Card       @relation(fields: [cardId], references: [id])
-  summonType SummonType @relation(fields: [summonTypeId], references: [id])
-
-  @@id([cardId, summonTypeId])
-}
-
-//
-// SUMMON TYPE LOOKUP
-//
-model SummonType {
-  id    Int    @id @default(autoincrement())
-  name  String @unique   // Fusion, Synchro, XYZ, Link, Ritual
-
-  cards CardSummonType[]
-}
-
-//
-// USER
+// User entity
 //
 model User {
-  id        Int             @id @default(autoincrement())
+  id        String          @id
   email     String          @unique
-  username  String?
+  username  String          // Username for display purposes
 
   inventory InventoryItem[]
   decks     Deck[]
 }
 
 //
-// INVENTORY
+// Represents a user's overall inventory of cards
 //
 model InventoryItem {
-  id        Int   @id @default(autoincrement())
-  userId    Int
-  cardId    Int
-  quantity  Int   @default(1)
+  userId    String      // foreign key to User ID
+  cardId    Int         // foreign key to Card ID
+  quantity  Int         @default(1)
 
   user User @relation(fields: [userId], references: [id])
   card Card @relation(fields: [cardId], references: [id])
 
-  @@unique([userId, cardId])
+  @@id([userId, cardId])
 }
 
 //
-// DECK
+// Represents a user's deck; can have multiple decks but deck name must be unique per user
 //
 model Deck {
-  id        Int        @id @default(autoincrement())
-  userId    Int
+  userId    String
   name      String
-  createdAt DateTime   @default(now())
 
   user      User       @relation(fields: [userId], references: [id])
   cards     DeckCard[]
+
+  @@id([userId, name])
 }
 
 //
-// DECK CONTENTS
+// Represents a card in a deck, quantity stored inside
 //
 model DeckCard {
-  id        Int      @id @default(autoincrement())
-  deckId    Int
-  cardId    Int
-  quantity  Int      @default(1)
-  isSide    Boolean  @default(false)
+  deckUserId String
+  deckName   String
+  cardId     Int
+  quantity   Int      @default(1)
+  zone       DeckZone @default(MAIN)
 
-  deck Deck @relation(fields: [deckId], references: [id])
+  deck Deck @relation(fields: [deckUserId, deckName], references: [userId, name])
   card Card @relation(fields: [cardId], references: [id])
 
-  @@unique([deckId, cardId, isSide])
+  @@id([deckUserId, deckName, cardId, zone])
 }
