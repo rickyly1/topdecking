@@ -7,7 +7,7 @@ import inventoryRoutes from './routes/inventory.routes';
 import decksRoutes from './routes/decks.routes';
 import deckCardsRoutes from './routes/deckCards.routes';
 
-// error handler (we'll create this next)
+// error handler
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
