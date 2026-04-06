@@ -47,7 +47,12 @@ export class CardsService {
   }
 
   // Search cards
-  async searchCards(filters: CardSearchFilters) {
+  async searchCards(
+    filters: CardSearchFilters,
+    options?: { 
+      limit?: number; 
+      offset?: number; 
+  }) {
 
     let select = "*";
 
@@ -95,6 +100,23 @@ export class CardsService {
 
     if (filters.monsterType) {
       query = query.eq("monster_types.name", filters.monsterType);
+    }
+
+    // Sorting
+    query = query.order("name", { ascending: true });
+
+    // Pagination
+    if (options?.limit !== undefined) {
+      query = query.limit(options.limit);
+    }
+
+    if (options?.offset !== undefined) {
+      const from = options.offset;
+      const to = options.limit
+        ? options.offset + options.limit - 1
+        : options.offset + 19; // default 20 rows if limit missing
+
+      query = query.range(from, to);
     }
 
     const { data, error } = await query;

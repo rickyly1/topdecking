@@ -38,7 +38,13 @@ router.get('/search', async (req, res, next) => {
             monsterType: req.query.monsterType ? String(req.query.monsterType) : undefined,
         };
 
-        const cards = await cardsService.searchCards(filters);
+        const limit = req.query.limit ? Number(req.query.limit) : undefined;
+        const offset = req.query.offset ? Number(req.query.offset) : undefined;
+        const orderBy = req.query.orderBy ? String(req.query.orderBy) : undefined;
+        const direction = req.query.direction === "desc" ? "desc" : "asc";
+
+        const cards = await cardsService.searchCards(filters, 
+            { limit, offset });
         res.json(cards);
 
     } catch (err) {
