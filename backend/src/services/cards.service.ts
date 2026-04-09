@@ -7,18 +7,19 @@ export type CardSearchFilters = {
   attribute?: string;     // LIGHT, DARK, SPELL, ETC.
   race?: string;          // DRAGON, WARRIOR, SPELLCASTER, ETC. (for monsters)
   level?: number;         // Level, Link, Rank #
-  atk?: number;
-  def?: number;
+  atk?: number;           // Set to 0 for "?"
+  def?: number;           // Set to 0 for "?" and for Link Monsters
   summonType?: string;    // NORMAL, FUSION, SYNCHRO, ETC.
   monsterType?: string;   // FLIP, TUNER, TOON, ETC.
 }
 
 export class CardsService {
+  // Table names as constants
   static readonly CARD_TABLE = "cards";
   static readonly CARD_MONSTER_TYPES_TABLE = "card_monster_types";
   static readonly MONSTER_TYPES_TABLE = "monster_types";
 
-  // Get all cards
+  // Get all cards (no filters or pagination)
   async getAllCards() {
     const { data, error } = await supabase
       .from(CardsService.CARD_TABLE)
@@ -37,19 +38,33 @@ export class CardsService {
       .from(CardsService.CARD_TABLE)
       .select()
       .eq("id", id)
-      .single();
+      .single(); // Expect a single result
 
     if (error || !data) {
       throw new NotFoundError(`Card with id ${id} not found`);
     }
 
-    return data;
+    return this.flattenMonsterTypes(data);
+  }
+
+  // Helper function flattens monsterType field
+  private flattenMonsterTypes(card: any) {
+    const { card_monster_types = [], ...rest } = card;
+
+    const monsterTypes = card_monster_types.map(
+      (entry: any) => entry.monster_types.name
+    );
+
+    return {
+      ...rest,
+      monsterTypes,
+    };
   }
 
   // Search cards
   async searchCards(
-    filters: CardSearchFilters,
-    options?: { 
+    filters: CardSearchFilters, // Search filters
+    options?: { // Pagination parameters
       limit?: number; 
       offset?: number; 
   }) {
@@ -57,15 +72,16 @@ export class CardsService {
     let select = "*";
 
     if (filters.monsterType) {
-      select += `, card_monster_types!inner(monster_types!inner(name))`;
+      select += `, card_monster_types!inner(monster_types!inner(name))`; // INNER JOIN when filtering with monster type
     } else {
-      select += `, card_monster_types(monster_types(name))`;
+      select += `, card_monster_types(monster_types(name))`; // LEFT JOIN when not filtering with monster type; still returns monster types if available
     }
 
     let query = supabase
       .from(CardsService.CARD_TABLE)
-      .select(select);
+      .select(select, { count: "exact" }); // return set of cards with "select" and total count for pagination purposes
 
+    // Apply filters to query, undefined parameters are ignored
     if (filters.name) {
       query = query.ilike("name", `%${filters.name}%`);
     }
@@ -102,14 +118,15 @@ export class CardsService {
       query = query.eq("monster_types.name", filters.monsterType);
     }
 
-    // Sorting
+    // Sort query results alphabetically ascending
     query = query.order("name", { ascending: true });
 
-    // Pagination
+    // Apply limit (number of rows per page)
     if (options?.limit !== undefined) {
       query = query.limit(options.limit);
     }
 
+    // Apply offset (number of rows to skip, derived from the page number)
     if (options?.offset !== undefined) {
       const from = options.offset;
       const to = options.limit
@@ -119,13 +136,14 @@ export class CardsService {
       query = query.range(from, to);
     }
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
 
     if (error) {
       throw new Error(error.message);
     }
 
-    return data;
+    return { data: data.map((card: any) => this.flattenMonsterTypes(card)), count };
   }
 }
+
 export const cardsService = new CardsService();
