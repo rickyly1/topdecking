@@ -1,5 +1,5 @@
 Topdecking
-Topdecking is a full‑stack web application for managing a personal Yu‑Gi‑Oh! card inventory, searching the global card database, and building decks with ownership and banlist awareness. The app supports both guest users and authenticated users, with additional features unlocked when logged in.
+Topdecking is a full‑stack web application for searching the global Yu‑Gi‑Oh! card database and managing personal card collections. The project includes a TypeScript backend with a service‑based architecture and an upcoming interactive frontend for deck‑building workflows.
 
 Tech Stack
 Frontend
@@ -10,36 +10,32 @@ Frontend
 Backend
 - Node.js (TypeScript)
 - Express.js
-- Prisma ORM
-- PostgreSQL
+- Drizzle ORM
 - Supabase
 External API
 - YGOPRODeck API (card data, images, banlist status)
 
 Core Features
 User Accounts
-- Create an account and log in via Clerk
-- Persist user‑specific data (inventory, saved decks)
+- Authentication handles through Clerk
+- Persist user‑specific data in Supabase
+- Foundation in place for inventory and deck ownership
 Inventory Management
 - Add cards to a personal inventory
 - Edit quantities (add/remove)
-- View inventory in a sortable, filterable list
+- View inventory with card details
 - Inventory tied to authenticated users
 Card Search & Filtering
-Global Card Search (no account required):
 - Search the entire Yu‑Gi‑Oh! card database
-- Filter by type, attribute, level/rank, archetype, banlist status, and more
-- Powered by YGOPRODeck API
-Inventory Search:
-- Search within owned cards
-- Same filtering options as global search
+- Dynamic filters for name, description, attribute, race, level, ATK/DEF, summon type, and monster sub‑types
+- Pagination and total count for efficient browsing
+- Join‑table queries for monster type classification
+- Clean, normalized API responses
 Deck Building
 - Build decks using any cards (guest mode supported)
-- Decks cannot be saved unless logged in
-- Deck builder displays:
-- Owned vs unowned cards
-- Quantity warnings
-- Banlist legality indicators
+- Save decks when logged in
+- Display owned vs unowned cards
+- Quantity warnings and banlist legality indicators
 
 Stretch Features (Planned Enhancements)
 Data & Performance
@@ -59,10 +55,10 @@ Infrastructure & UX
 - Mobile‑friendly responsive design
 
 Roadmap
-- [ ] Set up project structure (frontend + backend)
-- [ ] Implement Clerk authentication
-- [ ] Build global card search page
-- [ ] Implement inventory management
+- [x] Set up project structure (frontend + backend)
+- [x] Implement card search with filtering, joins, and pagination
+- [ ] Implement user authentication (Clerk)
+- [ ] Build inventory management
 - [ ] Build deck builder (guest mode)
 - [ ] Add deck saving for authenticated users
 - [ ] Add banlist legality logic
