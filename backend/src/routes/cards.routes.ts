@@ -3,6 +3,35 @@ import { cardsService } from '../services/cards.service';
 
 const router = Router();
 
+// GET /cards/search - search cards by filters
+router.get('/search', async (req, res, next) => {
+    try {
+        // Extract filter/search parameters from query string, defaults to undefined if not provided
+        const filters = {
+            name: req.query.name ? String(req.query.name) : undefined,
+            description: req.query.description ? String(req.query.description) : undefined,
+            attribute: req.query.attribute ? String(req.query.attribute) : undefined,
+            race: req.query.race ? String(req.query.race) : undefined,
+            level: req.query.level ? Number(req.query.level) : undefined,
+            atk: req.query.atk ? Number(req.query.atk) : undefined,
+            def: req.query.def ? Number(req.query.def) : undefined,
+            summonType: req.query.summonType ? String(req.query.summonType) : undefined,
+            monsterType: req.query.monsterType ? String(req.query.monsterType) : undefined,
+        };
+
+        // Pagination parameters, limit = number of rows per page, offset = entries to skip/starting row
+        const limit = req.query.limit ? Number(req.query.limit) : undefined;
+        const offset = req.query.offset ? Number(req.query.offset) : undefined;
+
+        const result = await cardsService.searchCards(filters, { limit, offset });
+        res.json( result ); //  result = { data: [...], count: totalMatchingRows }
+
+    } catch (err) {
+        next(err);
+    }
+    
+});
+
 // GET /cards - return all cards
 router.get('/', async (req, res, next) => {
     try {
@@ -25,34 +54,5 @@ router.get('/:id', async (req, res, next) => {
     }
 });
 
-// GET /cards/search - search cards by filters
-router.get('/search', async (req, res, next) => {
-    try {
-        // Extract filter/search parameters from query string, defaults to undefined if not provided
-        const filters = {
-            name: req.query.name ? String(req.query.name) : undefined,
-            description: req.query.description ? String(req.query.description) : undefined,
-            attribute: req.query.attribute ? String(req.query.attribute) : undefined,
-            race: req.query.race ? String(req.query.race) : undefined,
-            level: req.query.level ? Number(req.query.level) : undefined,
-            atk: req.query.atk ? Number(req.query.atk) : undefined,
-            def: req.query.def ? Number(req.query.def) : undefined,
-            summonType: req.query.summonType ? String(req.query.summonType) : undefined,
-            monsterType: req.query.monsterType ? String(req.query.monsterType) : undefined,
-        };
-
-        // Pagination parameters, limit = number of rows per page, offset = entries to skip/starting row
-        const limit = req.query.limit ? Number(req.query.limit) : undefined;
-        const offset = req.query.offset ? Number(req.query.offset) : undefined;
-
-        const result = await cardsService.searchCards(filters, 
-            { limit, offset });
-        res.json( result ); //  result = { data: [...], count: totalMatchingRows }
-
-    } catch (err) {
-        next(err);
-    }
-    
-});
 
 export default router;

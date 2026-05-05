@@ -8,6 +8,13 @@
       "when": 1773641457252,
       "tag": "0000_flawless_dagger",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777091605279,
+      "tag": "0001_stormy_exodus",
+      "breakpoints": true
     }
   ]
 }

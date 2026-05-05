@@ -57,6 +57,7 @@ export const cards = pgTable("cards", {
   def: integer("def"), // Monsters only,"0" for link monsters and "?"
   description: text("description").notNull(),
   restriction: integer("restriction").notNull(), // 3, 2, 1, 0
+  imageURL: text("image_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

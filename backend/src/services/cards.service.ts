@@ -1,4 +1,6 @@
-import { supabase } from "../supabase";
+import { db } from '../db/index';
+import { cards, cardMonsterTypes, monsterTypes } from '../db/schema';
+import { eq, ilike, and, SQL } from 'drizzle-orm';
 import { NotFoundError } from '../utils/errors';
 
 export type CardSearchFilters = {
@@ -21,44 +23,26 @@ export class CardsService {
 
   // Get all cards (no filters or pagination)
   async getAllCards() {
-    const { data, error } = await supabase
-      .from(CardsService.CARD_TABLE)
-      .select();
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return data;
+    return await db.select().from(cards);
   }
 
   // Get card by ID
   async getCardById(id: string) {
-    const { data, error } = await supabase
-      .from(CardsService.CARD_TABLE)
+    const result = await db
       .select()
-      .eq("id", id)
-      .single(); // Expect a single result
+      .from(cards)
+      .leftJoin(cardMonsterTypes, eq(cards.id, cardMonsterTypes.cardId))
+      .leftJoin(monsterTypes, eq(cardMonsterTypes.monsterTypeId, monsterTypes.id))
+      .where(eq(cards.id, Number(id)));
+      
+    if (!result.length) throw new NotFoundError(`Card with id ${id} not found`);
 
-    if (error || !data) {
-      throw new NotFoundError(`Card with id ${id} not found`);
-    }
+    const cardData = result[0].cards;
+    const monsterTypeNames = result
+      .filter(r => r.monster_types?.name)
+      .map(r => r.monster_types!.name);
 
-    return this.flattenMonsterTypes(data);
-  }
-
-  // Helper function flattens monsterType field
-  private flattenMonsterTypes(card: any) {
-    const { card_monster_types = [], ...rest } = card;
-
-    const monsterTypes = card_monster_types.map(
-      (entry: any) => entry.monster_types.name
-    );
-
-    return {
-      ...rest,
-      monsterTypes,
-    };
+    return { ...cardData, monsterTypes: monsterTypeNames };
   }
 
   // Search cards
@@ -68,81 +52,45 @@ export class CardsService {
       limit?: number; 
       offset?: number; 
   }) {
+    const conditions: SQL[] = [];
+    if (filters.name) conditions.push(ilike(cards.name, `%${filters.name}%`));
+    if (filters.description) conditions.push(ilike(cards.description, `%${filters.description}%`));
+    if (filters.attribute) conditions.push(eq(cards.attribute, filters.attribute as any));
+    if (filters.race) conditions.push(eq(cards.race, filters.race));
+    if (filters.level !== undefined) conditions.push(eq(cards.level, filters.level));
+    if (filters.atk !== undefined) conditions.push(eq(cards.atk, filters.atk));
+    if (filters.def !== undefined) conditions.push(eq(cards.def, filters.def));
+    if (filters.summonType) conditions.push(eq(cards.summonType, filters.summonType as any));
+    if (filters.monsterType) conditions.push(eq(monsterTypes.name, filters.monsterType));
 
-    let select = "*";
+    let query = db
+      .select()
+      .from(cards)
+      .leftJoin(cardMonsterTypes, eq(cards.id, cardMonsterTypes.cardId))
+      .leftJoin(monsterTypes, eq(cardMonsterTypes.monsterTypeId, monsterTypes.id))
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(cards.name)
+      .$dynamic();
 
-    if (filters.monsterType) {
-      select += `, card_monster_types!inner(monster_types!inner(name))`; // INNER JOIN when filtering with monster type
-    } else {
-      select += `, card_monster_types(monster_types(name))`; // LEFT JOIN when not filtering with monster type; still returns monster types if available
+    if (options?.limit) query = query.limit(options.limit);
+    if (options?.offset) query = query.offset(options.offset);
+
+    const rows = await query;
+    
+    // Group rows by card ID since joins produce one row per monster type
+    const grouped = new Map<number, any>();
+    for (const row of rows) {
+      const card = row.cards;
+      if (!grouped.has(card.id)) {
+        grouped.set(card.id, { ...card, monsterTypes: [] });
+      }
+      if (row.monster_types?.name) {
+        grouped.get(card.id).monsterTypes.push(row.monster_types.name);
+      }
     }
 
-    let query = supabase
-      .from(CardsService.CARD_TABLE)
-      .select(select, { count: "exact" }); // return set of cards with "select" and total count for pagination purposes
-
-    // Apply filters to query, undefined parameters are ignored
-    if (filters.name) {
-      query = query.ilike("name", `%${filters.name}%`);
-    }
-
-    if (filters.description) {
-      query = query.ilike("description", `%${filters.description}%`);
-    }
-
-    if (filters.attribute) {
-      query = query.eq("attribute", filters.attribute);
-    }
-
-    if (filters.race) {
-      query = query.eq("race", filters.race);
-    }
-
-    if (filters.level !== undefined) {
-      query = query.eq("level", filters.level);
-    }
-
-    if (filters.atk !== undefined) {
-      query = query.eq("atk", filters.atk);
-    }
-
-    if (filters.def !== undefined) {
-      query = query.eq("def", filters.def);
-    }
-
-    if (filters.summonType) {
-      query = query.eq("summon_type", filters.summonType);
-    }
-
-    if (filters.monsterType) {
-      query = query.eq("monster_types.name", filters.monsterType);
-    }
-
-    // Sort query results alphabetically ascending
-    query = query.order("name", { ascending: true });
-
-    // Apply limit (number of rows per page)
-    if (options?.limit !== undefined) {
-      query = query.limit(options.limit);
-    }
-
-    // Apply offset (number of rows to skip, derived from the page number)
-    if (options?.offset !== undefined) {
-      const from = options.offset;
-      const to = options.limit
-        ? options.offset + options.limit - 1
-        : options.offset + 19; // default 20 rows if limit missing
-
-      query = query.range(from, to);
-    }
-
-    const { data, error, count } = await query;
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return { data: data.map((card: any) => this.flattenMonsterTypes(card)), count };
+    const data = Array.from(grouped.values());
+    return { data, count: data.length };
   }
 }
 
